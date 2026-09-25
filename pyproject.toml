@@ -57,5 +57,9 @@ select = ["E", "F", "W", "I", "UP", "B", "SIM"]
 "src/weftsh/_sync_client.py" = ["UP028"]
 
 [tool.ruff.format]
-# Generated; `scripts/unasync.py --check` holds it to the async source instead.
-exclude = ["src/weftsh/_sync_client.py"]
+# The sync client is generated; `scripts/unasync.py --check` holds it to the
+# async source instead. Markdown is excluded because ruff reformats the Python
+# inside its code blocks, which rewrote the README's hand-laid examples into
+# something correct and hard to read. The quickstart is embedded in the README
+# verbatim, so it keeps the same hand layout.
+exclude = ["src/weftsh/_sync_client.py", "*.md", "examples/quickstart.py"]

@@ -388,6 +388,31 @@ def test_a_forked_repo_mints_in_its_own_org() -> None:
     assert rec.calls[1].url.path == "/v1/orgs/elsewhere/tokens"
 
 
+@pytest.mark.parametrize("status", [404, 403, 400])
+def test_get_remote_url_explains_a_refused_mint(status: int) -> None:
+    weft, _ = client(js(status, {"error": "not found"}))
+    with pytest.raises(WeftError) as err:
+        weft.repo("session-1").get_remote_url()
+    assert err.value.status == status
+    assert "could not mint a credential for acme/session-1" in err.value.message
+    assert "org:read and repo:write, or org:admin" in err.value.message
+    assert isinstance(err.value.__cause__, WeftError)
+
+
+def test_get_remote_url_names_repo_read_for_a_read_only_url() -> None:
+    weft, _ = client(js(404, {"error": "not found"}))
+    with pytest.raises(WeftError) as err:
+        weft.repo("r").get_remote_url(access="read")
+    assert "org:read and repo:read" in err.value.message
+
+
+def test_get_remote_url_passes_anything_else_through() -> None:
+    weft, _ = client(js(500, {"error": "boom"}))
+    with pytest.raises(WeftError) as err:
+        weft.repo("r").get_remote_url()
+    assert err.value.message == "boom"
+
+
 # ------------------------------------------------------------------ errors
 
 

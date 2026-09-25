@@ -371,13 +371,31 @@ class Repo:
         """
         if access not in ("read", "write"):
             raise ValueError('access must be "read" or "write"')
-        minted = self._client._mint(
-            self.org,
-            scopes=["repo:read" if access == "read" else "repo:write"],
-            repo=self.name,
-            label=label or f"remote:{self.name}",
-            ttl=ttl,
-        )
+        scope: TokenScope = "repo:read" if access == "read" else "repo:write"
+        try:
+            minted = self._client._mint(
+                self.org,
+                scopes=[scope],
+                repo=self.name,
+                label=label or f"remote:{self.name}",
+                ttl=ttl,
+            )
+        except WeftError as exc:
+            # The server answers a token that may not mint with a bare 404 (it
+            # does not say what exists to a caller who cannot see it), which
+            # reads as nonsense halfway through a quickstart. Say what is needed.
+            if exc.status not in (400, 403, 404):
+                raise
+            raise WeftError(
+                f"get_remote_url could not mint a credential for {self.org}/{self.name} "
+                f"({exc.status}: {exc.message}). It mints a token scoped to this "
+                f"repository, so the client's token needs org:read and {scope}, "
+                "or org:admin — and the repository must exist.",
+                status=exc.status,
+                method=exc.method,
+                url=exc.url,
+                body=exc.body,
+            ) from exc
         return _wire.remote_url(self.clone_url, minted.token)
 
     # --------------------------------------------------------------- writing

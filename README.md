@@ -11,9 +11,12 @@ weft = Weft(token=os.environ["WEFT_TOKEN"], org="acme")
 
 repo = weft.create_repo()
 
-repo.create_commit(message="agent step 1").put("src/app.py", "print('hello')\n").put(
-    "README.md", "# session\n"
-).send()
+(
+    repo.create_commit(message="agent step 1")
+    .put("src/app.py", "print('hello')\n")
+    .put("README.md", "# session\n")
+    .send()
+)
 
 print(repo.read_file("src/app.py"))
 print(repo.get_remote_url())  # https://x:weft_…@api.weft.sh/acme/repo-….git
@@ -28,8 +31,98 @@ you can clone, push to and export.
   dataclasses.
 - Python 3.10+.
 
+## Quickstart
+
+From nothing to a repository you have committed to over HTTP and cloned with
+`git`, in about five minutes.
+
+**1. Get a token.** [Create an account](https://weft.sh/login?mode=signup)
+(free, no card) and an organization, then mint a token under
+**Settings → Tokens** with `org:read` and `repo:write`. `repo:write` creates and commits;
+`org:read` lets the SDK mint the short-lived clone credential in step 4. An
+`org:admin` token does both.
+
+```bash
+export WEFT_TOKEN=weft_…     # the token you just minted
+export WEFT_ORG=acme         # your organization's name
+```
+
+**2. Install.**
+
+```bash
+pip install weftsh
+```
+
+**3. Save this as `quickstart.py` and run it.** It needs `git` on your `PATH` for
+the last step.
+
+<!-- quickstart:start — kept identical to examples/quickstart.py by a test -->
+```python
+import os
+import subprocess
+import tempfile
+from pathlib import Path
+
+from weftsh import DEFAULT_BASE_URL, Weft
+
+weft = Weft(
+    token=os.environ["WEFT_TOKEN"],
+    org=os.environ["WEFT_ORG"],
+    base_url=os.environ.get("WEFT_URL", DEFAULT_BASE_URL),  # optional
+)
+
+# 1. A repository of its own: a real git remote, made in well under a second.
+repo = weft.create_repo()
+print("created   ", repo.name)
+
+# 2. A commit, straight over HTTP. No clone, no checkout, no disk.
+result = (
+    repo.create_commit(message="first commit")
+    .put("hello.txt", "hello from the Weft SDK\n")
+    .send()
+)
+print("committed ", result.commit[:7])
+
+# 3. Read it back, at the branch tip or at any commit.
+print("read back ", repr(repo.read_file("hello.txt")))
+
+# 4. It is still git. This URL carries a credential for this repository
+#    only, and it expires in an hour.
+url = repo.get_remote_url()
+clone = Path(tempfile.mkdtemp(prefix="weft-")) / repo.name
+subprocess.run(["git", "clone", "--quiet", url, str(clone)], check=True)
+print("cloned    ", (clone / "hello.txt").read_text().strip())
+```
+<!-- quickstart:end -->
+
+```bash
+python quickstart.py
+```
+
+**4. See what it did.** You should get something like this (your
+repository name and commit will differ):
+
+```text
+created    repo-75f21a56-2e6d-445f-bcde-09a7f20d0bfb
+committed  889ba6d
+read back  'hello from the Weft SDK\n'
+cloned     hello from the Weft SDK
+```
+
+That repository is yours: it is in the dashboard, you can `git push` to it,
+and it costs nothing while it sits there. Run the script again and you get a
+second one.
+
+**Where next:**
+
+- [Commits](#commits): branches, concurrency with `expected_parent`, and the audit `context`
+- [Reading](#reading): any file at any revision, history, diffs
+- [Git remotes](#git-remotes): read-only URLs, lifetimes, and what the credential can reach
+- [asyncio](#asyncio): the same client with `await`
+
 ## Contents
 
+- [Quickstart](#quickstart)
 - [Install](#install)
 - [Set up the client](#set-up-the-client)
 - [Repositories](#repositories)
@@ -320,9 +413,10 @@ git commit -am "from a sandbox" && git push
 | `ttl`    | `3600`          | Seconds until the credential dies. At most a year.  |
 | `label`  | `remote:<repo>` | Shown in the token list and in the audit trail.     |
 
-Each call mints a new token, which needs a client token allowed to mint:
-`org:admin` for a service token, or a personal token whose owner can write to
-the repository. `repo.clone_url` is the same URL with no credential in it.
+Each call mints a new token, so the client's own token must be allowed to
+mint one: an `org:admin` token, or a personal token carrying `org:read` (to
+mint) and `repo:write` (to grant write access; `repo:read` is enough for
+`access="read"`). `repo.clone_url` is the same URL with no credential in it.
 
 ## Tokens
 

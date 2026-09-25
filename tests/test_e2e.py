@@ -13,8 +13,10 @@ from __future__ import annotations
 
 import http.server
 import os
+import re
 import shutil
 import subprocess
+import sys
 import threading
 import time
 from collections.abc import Iterator
@@ -341,6 +343,26 @@ def test_exports_a_bundle_git_can_read(state: dict[str, Any]) -> None:
         .decode()
         .startswith(("# v2 git bundle", "# v3 git bundle"))
     )
+
+
+@pytest.mark.skipif(not HAS_GIT, reason="needs the git CLI")
+def test_runs_the_readme_quickstart_exactly_as_written(weft: Weft) -> None:
+    # A subprocess, importing `weftsh` the way somebody who copied it would.
+    assert URL and TOKEN and ORG
+    root = Path(__file__).resolve().parent.parent
+    out = subprocess.run(
+        [sys.executable, str(root / "examples" / "quickstart.py")],
+        env={**os.environ, "WEFT_TOKEN": TOKEN, "WEFT_ORG": ORG, "WEFT_URL": URL},
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout
+    name = re.search(r"^created\s+(\S+)$", out, re.M)
+    assert name and name.group(1).startswith("repo-"), out
+    track(weft, weft.repo(name.group(1)))
+    assert re.search(r"^committed\s+[0-9a-f]{7}$", out, re.M), out
+    assert re.search(r"^read back\s+'hello from the Weft SDK\\n'$", out, re.M), out
+    assert re.search(r"^cloned\s+hello from the Weft SDK$", out, re.M), out
 
 
 def test_deletes_a_repository(weft: Weft) -> None:
