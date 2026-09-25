@@ -26,7 +26,7 @@ classifiers = [
 dependencies = ["httpx>=0.27"]
 
 [project.urls]
-Homepage = "https://weft.sh/docs/sdk/python/"
+Homepage = "https://weft.sh/docs/sdk-python/"
 Source = "https://github.com/weftsh/python-sdk"
 Issues = "https://github.com/weftsh/python-sdk/issues"
 
